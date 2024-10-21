@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kogito-process-decisions-quarkus
+  labels:
+    app: kogito-process-decisions-quarkus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kogito-process-decisions-quarkus
+  template:
+    metadata:
+      labels:
+        app: kogito-process-decisions-quarkus
+    spec:
+      containers:
+      - name: kogito-process-decisions-quarkus
+        image: jizuzquiza/kogito-process-decisions-quarkus:1.0_1.32.0
+        ports:
+        - containerPort: 8080

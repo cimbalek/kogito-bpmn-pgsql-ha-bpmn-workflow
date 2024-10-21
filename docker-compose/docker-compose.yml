@@ -1,0 +1,227 @@
+services:
+  kogito-bpmn-pgsql-ha-bpmn-workflow:
+    container_name: kogito-bpmn-pgsql-ha-bpmn-workflow
+    image: dev.local/kogito-bpmn-pgsql-ha-bpmn-workflow:1.0.0
+    ports:
+      - '8080:8080'
+      - '8083:8083'
+    cpus: 2
+    mem_limit: 500m
+    environment:
+      QUARKUS_HTTP_CORS_ORIGINS: /.*/
+      # See https://quarkus.io/guides/datasource#jdbc-configuration
+      QUARKUS_DATASOURCE_JDBC_URL: 'jdbc:postgresql://haproxy:5432/postgres?currentSchema=kogito'
+      QUARKUS_DATASOURCE_REACTIVE_URL: 'postgresql://haproxy:5432/postgres?currentSchema=kogito'
+      QUARKUS_DATASOURCE_USERNAME: postgres
+      QUARKUS_DATASOURCE_PASSWORD: postgres
+      QUARKUS_DATASOURCE_DB_KIND: postgresql
+      QUARKUS_DATASOURCE_JDBC_ENABLE_METRICS: "false"
+      QUARKUS_DATASOURCE_JDBC_METRICS_ENABLED: "false"
+      # The initial size of the pool. Usually you will want to set the initial size to match at least the minimal size, 
+      # but this is not enforced so to allow for architectures which prefer a lazy initialization of the connections on boot, 
+      # while being able to sustain a minimal pool size after boot. DEFAULT: null
+      # QUARKUS_DATASOURCE_JDBC_INITIAL_SIZE: 20
+      # The datasource pool minimum size. DEFAULT: 0
+      # QUARKUS_DATASOURCE_JDBC_MIN_SIZE: 20
+      # The datasource pool maximum size. DEFAULT: 20
+      # QUARKUS_DATASOURCE_JDBC_MAX_SIZE: 40
+      # The interval at which we validate idle connections in the background. Set to 0 to disable background validation. DEFAULT: 2M
+      # QUARKUS_DATASOURCE_JDBC_BACKGROUND_VALIDATION_INTERVAL: 2M
+      # Perform foreground validation on connections that have been idle for longer than the specified interval. DEFAULT: null
+      # QUARKUS_DATASOURCE_JDBC_FOREGROUND_VALIDATION_INTERVAL: 15S
+      # The timeout before cancelling the acquisition of a new connection. DEFAULT: 5S
+      # QUARKUS_DATASOURCE_JDBC_ACQUISITION_TIMEOUT: 5S
+      # The interval at which we check for connection leaks. DEFAULT: disabled
+      # QUARKUS_DATASOURCE_JDBC_LEAK_DETECTION_INTERVAL: 10M
+      # The interval at which we try to remove idle connections. DEFAULT: 5M
+      # QUARKUS_DATASOURCE_JDBC_IDLE_REMOVAL_INTERVAL: 5M
+      # The max lifetime of a connection. DEFAULT: disabled
+      # QUARKUS_DATASOURCE_JDBC_MAX_LIFETIME: 1M
+      # The transaction isolation level. DEFAULT: null
+      # QUARKUS_DATASOURCE_JDBC_TRANSACTION_ISOLATION_LEVEL: undefined, none, read-uncommitted, read-committed, repeatable-read, serializable
+      KOGITO_SERVICE_URL: 'http://kogito-bpmn-pgsql-ha-bpmn-workflow:8080'
+      KOGITO_DATA_INDEX_URL: 'http://localhost:8080'
+      KOGITO_JOBS_SERVICE_URL: 'http://localhost:8080'
+      # The current chunk size in minutes the scheduler handles, it is used to keep a limit number of jobs scheduled
+      # in the in-memory scheduler.
+      #KOGITO_JOBS-SERVICE_SCHEDULERCHUNKINMINUTES: 10
+      # The interval the job loading method runs to fetch the persisted jobs from the repository.
+      #KOGITO_JOBS-SERVICE_LOADJOBINTERVALINMINUTES: 10
+      # The interval based on the current time the job loading method uses to fetch jobs "FROM (now -
+      # {@link #loadJobFromCurrentTimeIntervalInMinutes}) TO {@link #schedulerChunkInMinutes}"
+      #KOGITO_JOBS-SERVICE_LOADJOBFROMCURRENTTIMEINTERVALINMINUTES: 0
+      # Number of retries configured for the periodic jobs loading procedure. Every time the procedure is started this
+      # value is considered.
+      #KOGITO_JOBS-SERVICE_LOADJOBRETRIES: 3
+      # Error strategy to apply when the periodic jobs loading procedure has exceeded the jobLoadReties. NONE, FAIL_SERVICE
+      #KOGITO_JOBS-SERVICE_LOADJOBERRORSTRATEGY: FAIL_SERVICE
+      QUARKUS_FLYWAY_MIGRATE-AT-START: "true"
+      QUARKUS_FLYWAY_BASELINE-ON-MIGRATE: "true"
+      QUARKUS_FLYWAY_BASELINE-VERSION: "0_0"
+      QUARKUS_FLYWAY_LOCATIONS: "classpath:/db/migration,classpath:/db/jobs-service,classpath:/db/data-audit/postgresql"
+      QUARKUS_FLYWAY_TABLE: "FLYWAY_RUNTIME_SERVICE"
+      QUARKUS_FLYWAY_OUT-OF-ORDER: "true"
+    depends_on:
+      haproxy:
+        condition: service_started
+  keycloak:
+    container_name: keycloak
+    image: quay.io/keycloak/keycloak:23.0.7-0
+    profiles:
+      - kogito-consoles
+    ports:
+      - '8480:8080'
+    depends_on:
+      haproxy:
+        condition: service_started
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - '-f'
+        - 'http://localhost:8080/realms/kogito'
+      interval: 2s
+      timeout: 1s
+      retries: 50
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_SCHEMA: keycloak
+      DB_ADDR: haproxy
+      DB_DATABASE: postgres
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: admin
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command:
+      start-dev --import-realm --hostname-port=8480 --health-enabled=true
+  kogito-management-console:
+    container_name: kogito-management-console
+    image: apache/incubator-kie-kogito-management-console:main
+    profiles:
+      - kogito-consoles
+    ports:
+      - '8280:8080'
+    depends_on:
+      keycloak:
+        condition: service_started
+    volumes:
+      - './svg/:/home/kogito/data/svg/'
+    environment:
+      KOGITO_CONSOLES_KEYCLOAK_HEALTH_CHECK_URL: >-
+        http://localhost:8480/realms/kogito/.well-known/openid-configuration
+      KOGITO_CONSOLES_KEYCLOAK_URL: 'http://localhost:8480'
+      KOGITO_CONSOLES_KEYCLOAK_REALM: kogito
+      KOGITO_CONSOLES_KEYCLOAK_CLIENT_ID: kogito-console-quarkus
+      RUNTIME_TOOLS_MANAGEMENT_CONSOLE_KOGITO_ENV_MODE: "PROD"
+      RUNTIME_TOOLS_MANAGEMENT_CONSOLE_DATA_INDEX_ENDPOINT: http://localhost:8080/graphql
+  kogito-task-console:
+    container_name: kogito-task-console
+    image: apache/incubator-kie-kogito-task-console:main
+    profiles:
+      - kogito-consoles
+    ports:
+      - '8380:8080'
+    depends_on:
+      keycloak:
+        condition: service_started
+    environment:
+      KOGITO_CONSOLES_KEYCLOAK_HEALTH_CHECK_URL: >-
+        http://localhost:8480/realms/kogito/.well-known/openid-configuration
+      KOGITO_CONSOLES_KEYCLOAK_URL: 'http://localhost:8480'
+      KOGITO_CONSOLES_KEYCLOAK_REALM: kogito
+      KOGITO_CONSOLES_KEYCLOAK_CLIENT_ID: kogito-console-quarkus
+      RUNTIME_TOOLS_TASK_CONSOLE_KOGITO_ENV_MODE: "PROD"
+      RUNTIME_TOOLS_TASK_CONSOLE_DATA_INDEX_ENDPOINT: http://localhost:8080/graphql
+      RUNTIME_TOOLS_TASK_CONSOLE_KOGITO_TASK_STATES_LIST: "Ready,Reserved,Completed,Aborted,Skipped"
+      RUNTIME_TOOLS_TASK_CONSOLE_KOGITO_TASK_ACTIVE_STATES_LIST: "Ready,Reserved"
+  haproxy:
+    image: jizuzquiza/haproxy-pgsql-ha:1.0.0
+    container_name: haproxy
+    ports:
+      - 5432:5432
+      - 7000:7000
+    depends_on:
+      pg-master:
+        condition: service_healthy
+      pg-slave:
+        condition: service_healthy
+      zoo1:
+        condition: service_started
+  zoo1:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zoo
+    restart: always
+    hostname: zoo1
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+  pg-master:
+    image: jizuzquiza/postgresql-ha:1.0.0
+    container_name: pg-master
+    restart: always
+    hostname: pg-master
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: '/var/lib/postgresql/data/pgdata'
+    expose:
+      - 5432
+      - 8008
+    ports:
+      - 5433:5432
+    volumes:
+     - '/var/lib/postgresql/data'
+    command: patroni /postgres0.yml
+    healthcheck:
+      test: patronictl -c /postgres0.yml list | grep pg-master | grep -e running -e streaming > /dev/null
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  pg-slave:
+    image: jizuzquiza/postgresql-ha:1.0.0
+    container_name: pg-slave
+    restart: always
+    hostname: pg-slave
+    expose:
+      - 5432
+      - 8008
+    ports:
+      - 5434:5432
+    volumes:
+     - '/var/lib/postgresql/data'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: '/var/lib/postgresql/data/pgdata'
+    command: patroni /postgres1.yml
+    healthcheck:
+      test: patronictl -c /postgres1.yml list | grep pg-slave | grep -e running -e streaming > /dev/null
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  pgadmin:
+    image: dpage/pgadmin4:8.2
+    container_name: pgadmin
+    ports:
+      - 8055:80
+    volumes:
+      - ./pgadmin/servers.json:/pgadmin4/servers.json
+      - ./pgadmin/pgpass:/pgadmin4/pgpass
+    entrypoint: >
+      /bin/sh -c "
+      cp -f /pgadmin4/pgpass /var/lib/pgadmin/;
+      chmod 600 /var/lib/pgadmin/pgpass;
+      /entrypoint.sh
+      "
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user@kogito.org
+      PGADMIN_DEFAULT_PASSWORD: pass
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      GUNICORN_ACCESS_LOGFILE: "/dev/null"
