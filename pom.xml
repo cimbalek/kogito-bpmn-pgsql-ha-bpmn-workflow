@@ -21,9 +21,9 @@
     <quarkus.platform.version>3.8.6</quarkus.platform.version>
     <kogito.bom.group-id>org.kie.kogito</kogito.bom.group-id>
     <kogito.bom.artifact-id>kogito-bom</kogito.bom.artifact-id>
-    <kogito.bom.version>999-20240912-SNAPSHOT</kogito.bom.version>
+    <kogito.bom.version>999-SNAPSHOT</kogito.bom.version>
     <kogito-apps.bom.artifact-id>kogito-apps-bom</kogito-apps.bom.artifact-id>
-    <version.org.kie.kogito>999-20240912-SNAPSHOT</version.org.kie.kogito>
+    <version.org.kie.kogito>999-SNAPSHOT</version.org.kie.kogito>
   </properties>
 
   <dependencyManagement>
@@ -185,10 +185,29 @@
           <groupId>org.kie</groupId>
           <artifactId>kogito-addons-quarkus-jobs</artifactId>
         </dependency>
+        <!-- Jobs service persistence -->
+        <dependency>
+          <groupId>org.kie.kogito</groupId>
+          <artifactId>jobs-service-postgresql-common</artifactId>
+        </dependency>
         <!-- Jobs Management endpoints -->
         <dependency>
           <groupId>org.kie</groupId>
           <artifactId>kogito-addons-quarkus-jobs-management</artifactId>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <!-- containe profile -->
+    <profile>
+      <id>container</id>
+      <properties>
+        <quarkus.profile>container</quarkus.profile>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>io.quarkus</groupId>
+          <artifactId>quarkus-container-image-jib</artifactId>
         </dependency>
       </dependencies>
     </profile>
