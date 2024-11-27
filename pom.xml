@@ -21,11 +21,31 @@
     <quarkus.platform.version>3.8.6</quarkus.platform.version>
     <kogito.bom.group-id>org.kie.kogito</kogito.bom.group-id>
     <kogito.bom.artifact-id>kogito-bom</kogito.bom.artifact-id>
-    <kogito.bom.version>999-SNAPSHOT</kogito.bom.version>
+    <kogito.bom.version>999-20240912-SNAPSHOT</kogito.bom.version>
     <kogito-apps.bom.artifact-id>kogito-apps-bom</kogito-apps.bom.artifact-id>
-    <version.org.kie.kogito>999-SNAPSHOT</version.org.kie.kogito>
+    <version.org.kie.kogito>999-20240912-SNAPSHOT</version.org.kie.kogito>
   </properties>
 
+  <repositories>
+    <!-- useful to resolve parent pom when it is a SNAPSHOT -->
+    <repository>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <id>apache.snapshots</id>
+      <name>Apache Snapshot Repository</name>
+      <url>https://repository.apache.org/snapshots</url>
+    </repository>
+<!--    <repository>-->
+<!--      <releases>-->
+<!--        <enabled>true</enabled>-->
+<!--      </releases>-->
+<!--      <id>jfrog</id>-->
+<!--      <name>Jfrog IBM</name>-->
+<!--      <url>https://na.artifactory.swg-devops.com/artifactory/hyc-bamoe-team-generic-local/</url>-->
+<!--    </repository>-->
+
+  </repositories>
   <dependencyManagement>
     <dependencies>
       <dependency>
